@@ -2,7 +2,7 @@ on early-init
     insmod /rk29-ipp.ko
     insmod /rk30xxnand_ko.ko
     write /sys/bus/platform/drivers/usb20_otg/force_usb_mode 2
-#    write /sys/devices/virtual/display/HDMI/scale 80
+    write /sys/devices/virtual/display/HDMI/scale 80
     start ueventd
 
 on init
@@ -52,7 +52,6 @@ service ueventd /sbin/ueventd
 service recovery /sbin/recovery
 
 service adbd /sbin/adbd recovery
-    disabled
 
 # Always start adbd on userdebug and eng builds
 on property:ro.debuggable=1
