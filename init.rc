@@ -99,8 +99,8 @@ loglevel 3
     write /proc/sys/kernel/sched_compat_yield 1
     write /proc/sys/kernel/sched_child_runs_first 0
     write /proc/sys/kernel/randomize_va_space 2
-    write /proc/sys/kernel/kptr_restrict 2
-    write /proc/sys/kernel/dmesg_restrict 1
+    write /proc/sys/kernel/kptr_restrict 0
+    write /proc/sys/kernel/dmesg_restrict 0
     write /proc/sys/vm/mmap_min_addr 32768
     write /proc/sys/kernel/sched_rt_runtime_us 950000
     write /proc/sys/kernel/sched_rt_period_us 1000000
@@ -111,7 +111,7 @@ loglevel 3
     chown system system /dev/cpuctl
     chown system system /dev/cpuctl/tasks
     chmod 0660 /dev/cpuctl/tasks
-    write /dev/cpuctl/cpu.shares 1024
+    write /dev/cpuctl/cpu.shares 512
     write /dev/cpuctl/cpu.rt_runtime_us 950000
     write /dev/cpuctl/cpu.rt_period_us 1000000
 
@@ -119,7 +119,7 @@ loglevel 3
     chown system system /dev/cpuctl/apps/tasks
     chmod 0666 /dev/cpuctl/apps/tasks
     write /dev/cpuctl/apps/cpu.shares 1024
-    write /dev/cpuctl/apps/cpu.rt_runtime_us 800000
+    write /dev/cpuctl/apps/cpu.rt_runtime_us 700000
     write /dev/cpuctl/apps/cpu.rt_period_us 1000000
 
     mkdir /dev/cpuctl/apps/bg_non_interactive
@@ -137,21 +137,21 @@ loglevel 3
 on fs
     insmod /rk30xxnand_ko.ko
 # mount mtd partitions
-    mount ext4 mtd@system /system wait ro noatime nodiratime noauto_da_alloc
-    start readahead
-    mount ext4 mtd@userdata /data wait noatime nodiratime nosuid nodev noauto_da_alloc
-    mount ext4 mtd@cache /cache wait noatime nodiratime nosuid nodev noauto_da_alloc
+    mount ext4 mtd@system /system wait rw
+    stop readahead
+    mount ext4 mtd@userdata /data wait nosuid nodev
+    mount ext4 mtd@cache /cache wait nosuid nodev
 
     insmod /system/lib/modules/ump.ko
-#    insmod /system/lib/modules/mali.ko mali_dvfs=50,100,133,160,200,266,400 mali_init_clock=50
+    insmod /system/lib/modules/mali.ko mali_dvfs=50,100,133,160,200,266,400 mali_init_clock=50
     insmod /system/lib/modules/mali.ko
     insmod /system/lib/modules/rk30_mirroring.ko
     insmod /system/lib/modules/rk29-ipp.ko
 
 on post-fs
     # once everything is setup, no need to modify /
-    # mount rootfs rootfs / ro remount
-    # mount shared so changes propagate into child namespaces
+    mount rootfs rootfs / rw remount
+    mount shared so changes propagate into child namespaces
     mount rootfs rootfs / shared rec
     mount tmpfs tmpfs /mnt/secure private rec
 
@@ -255,7 +255,7 @@ on post-fs-data
     # must uncomment this line, otherwise encrypted filesystems
     # won't work.
     # Set indication (checked by vold) that we have finished this action
-    #setprop vold.post_fs_data_done 1
+    setprop vold.post_fs_data_done 1
 
 on boot
 # basic network init
@@ -305,14 +305,7 @@ on boot
     chmod 0660 /sys/devices/system/cpu/cpufreq/interactive/go_hispeed_load
     chown system system /sys/devices/system/cpu/cpufreq/interactive/above_hispeed_delay
     chmod 0660 /sys/devices/system/cpu/cpufreq/interactive/above_hispeed_delay
-    chown system system /sys/devices/system/cpu/cpufreq/interactive/boost
-    chmod 0660 /sys/devices/system/cpu/cpufreq/interactive/boost
-    chown system system /sys/devices/system/cpu/cpufreq/interactive/boostpulse
-    chown system system /sys/devices/system/cpu/cpufreq/interactive/input_boost
-    chmod 0660 /sys/devices/system/cpu/cpufreq/interactive/input_boost
-    chown system system /sys/devices/system/cpu/cpufreq/interactive/boostpulse_duration
-    chmod 0660 /sys/devices/system/cpu/cpufreq/interactive/boostpulse_duration
-
+    
     # Assume SMP uses shared cpufreq policy for all CPUs
     chown system system /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq
     chmod 0660 /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq
@@ -422,7 +415,6 @@ on property:selinux.reload_policy=1
 service console /system/bin/sh
     class core
     console
-    disabled
     user shell
     group log
 
@@ -433,7 +425,6 @@ on property:ro.debuggable=1
 service adbd /sbin/adbd
     class core
     socket adbd stream 660 system system
-    disabled
     seclabel u:r:adbd:s0
 
 # adbd on at boot in emulator
@@ -465,7 +456,6 @@ service displayd /system/bin/displayd
 service vold /system/bin/vold
     class core
     socket vold stream 0660 root mount
-    ioprio be 2
 
 service netd /system/bin/netd
     class main
@@ -506,20 +496,17 @@ service media /system/bin/mediaserver
     class main
     user media
     group system audio camera inet net_bt net_bt_admin net_bw_acct drmrpc
-    ioprio rt 4
 
 service bootanim /system/bin/bootanimation
     class main
     user graphics
     group graphics
-    disabled
     oneshot
 
 service shutdownanim /system/bin/bootanimation -shutdown
     class main
     user graphics
     group graphics
-    disabled
     oneshot
 
 service installd /system/bin/installd
@@ -535,7 +522,6 @@ service racoon /system/bin/racoon
     socket racoon stream 600 system system
     # IKE uses UDP port 500. Racoon will setuid to vpn after binding the port.
     group vpn net_admin inet
-    disabled
     oneshot
 
 service mtpd /system/bin/mtpd
@@ -543,7 +529,6 @@ service mtpd /system/bin/mtpd
     socket mtpd stream 600 system system
     user vpn
     group vpn net_admin inet net_raw
-    disabled
     oneshot
 
 service keystore /system/bin/keystore /data/misc/keystore
@@ -555,7 +540,6 @@ service keystore /system/bin/keystore /data/misc/keystore
 service dumpstate /system/bin/dumpstate -s
     class main
     socket dumpstate stream 0660 shell log
-    disabled
     oneshot
 
 service drmservice /system/bin/drmservice
@@ -564,16 +548,13 @@ service drmservice /system/bin/drmservice
 
 service sshd /system/bin/start-ssh
     class main
-    disabled
 
 service mdnsd /system/bin/mdnsd
     class main
     user mdnsr
     group inet net_raw
     socket mdnsd stream 0660 mdnsr inet
-    disabled
     oneshot
 
 service whtest /system/bin/whtest.sh
-    disabled
     oneshot
